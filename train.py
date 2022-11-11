@@ -9,6 +9,9 @@ from tqdm import tqdm
 import math
 import config
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter()
 
 
 def collate_fn(batch):
@@ -56,7 +59,8 @@ class LizaDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         raw_img = io.imread(os.path.join(self.img_folder_path, self.img_names[idx]))
         w, h = raw_img.shape[1], raw_img.shape[0]
-        img = torch.tensor(transform.resize(raw_img, (self.height, self.width)), dtype=torch.float32)
+        img = raw_img / 255.0
+        img = torch.tensor(transform.resize(img, (self.height, self.width)), dtype=torch.float32)
         img = img.permute(2, 0, 1)
         raw_bboxes = self.labeling_dict[self.img_names[idx]]
         bboxes = []
@@ -119,6 +123,7 @@ def train_one_epoch(model, optimizer, loader, device, epoch):
         torch.cuda.empty_cache()
 
     print(f'Epoch {epoch + 1} loss: {sum(all_losses) / len(all_losses)}')
+    writer.add_scalar('Loss/train', sum(all_losses) / len(all_losses), epoch)
 
 
 if __name__ == "__main__":
@@ -129,18 +134,12 @@ if __name__ == "__main__":
     model.to(device)
 
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.005,
-                                momentum=0.9, weight_decay=0.0005)
+    optimizer = torch.optim.SGD(params, lr=0.01, momentum=0.9, weight_decay=0.0005)
 
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                   step_size=3,
-                                                   gamma=0.1)
-
-    dataset = LizaDataset(config.TRAIN_IMG_FOLDER_PATH, config.TRAIN_LABELING_FILE_PATH, config.WIDTH, config.HEIGHT)
+    dataset = LizaDataset(config.TRAIN_DATA_PATH, config.TRAIN_CSV_PATH, config.WIDTH, config.HEIGHT)
     loader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0, collate_fn=collate_fn)
 
     for epoch in range(config.NUM_EPOCHS):
         print(f"Epoch {epoch + 1}/{config.NUM_EPOCHS}")
         train_one_epoch(model, optimizer, loader, device, epoch)
-        lr_scheduler.step()
         torch.save(model, f'checkpoints/model_{epoch + 1}.pth')
