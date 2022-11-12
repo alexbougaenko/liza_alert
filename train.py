@@ -137,7 +137,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(params, lr=0.01, momentum=0.9, weight_decay=0.0005)
 
     dataset = LizaDataset(config.TRAIN_DATA_PATH, config.TRAIN_CSV_PATH, config.WIDTH, config.HEIGHT)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0, collate_fn=collate_fn)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=0, collate_fn=collate_fn)
 
     for epoch in range(config.NUM_EPOCHS):
         print(f"Epoch {epoch + 1}/{config.NUM_EPOCHS}")

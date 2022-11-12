@@ -6,9 +6,23 @@ import json
 import pandas as pd
 from tqdm import tqdm
 import pickle
+import torchvision
 
 MODEL_PATH = 'checkpoints/model_10.pth'
 DEBUG = True
+
+
+def apply_nms(orig_prediction, iou_thresh=0.3):
+
+    keep = torchvision.ops.nms(orig_prediction['boxes'], orig_prediction['scores'], iou_thresh)
+
+    final_prediction = orig_prediction
+    final_prediction['boxes'] = final_prediction['boxes'][keep]
+    final_prediction['scores'] = final_prediction['scores'][keep]
+    final_prediction['labels'] = final_prediction['labels'][keep]
+
+    return final_prediction
+
 
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -27,11 +41,13 @@ if __name__ == '__main__':
             img = img.unsqueeze(0)
             img = img.to(device)
             with torch.no_grad():
-                prediction = model(img)
+                prediction = model(img)[0]
 
-            boxes = prediction[0]['boxes'].cpu().numpy()
-            scores = prediction[0]['scores'].cpu().numpy()
-            labels = prediction[0]['labels'].cpu().numpy()
+            # prediction = apply_nms(prediction)
+
+            boxes = prediction['boxes'].cpu().numpy()
+            scores = prediction['scores'].cpu().numpy()
+            labels = prediction['labels'].cpu().numpy()
 
             if DEBUG:
                 debug_list.append((img_name, boxes, scores, labels))
